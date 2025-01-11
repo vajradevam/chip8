@@ -90,7 +90,7 @@ bool set_config_from_args(config_t *config, int argc, char **argv) {
         .window_height = 32,
         .fg_color = 0x00FFFFFF,
         .bg_color = 0x00000000,
-        .scaling_factor = 20,
+        .scaling_factor = 21,
         .outline = true,
     };
 
@@ -247,9 +247,11 @@ void get_input(chip8_t *chip8) {
                         // spacebat
                         if (chip8->state == RUNNING) {
                             chip8->state = PAUSED;
+                            puts("Paused...");
+
                         } else {
                             chip8->state = RUNNING;
-                            puts("paused...");
+                            puts("Resumed...");
                         }
 
                     return;
