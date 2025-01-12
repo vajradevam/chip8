@@ -281,7 +281,7 @@ void get_input(chip8_t *chip8) {
                     // 0x00E0 -> clear screen
                     printf("Clear Screen!\n");
 
-                } else if (chip8->instruction.NN == 0xE0) {
+                } else if (chip8->instruction.NN == 0xEE) {
                     // 0x00EE -> subroutine return
                     printf("Return from subroutine to address 0x%04X\n", 
                             *(chip8->stack_pointer- 1));
@@ -302,11 +302,34 @@ void get_input(chip8_t *chip8) {
                 chip8->PC = chip8->instruction.NNN;
                 break;
 
-            case 0x0A:
-                // 0xANNN: Set index register I to NNN
-                printf("Set I to NNN (0x%04X)\n", chip8->instruction.NNN);
+            case 0x03:
+                // 0x3XNN :Skip next instruction if V[x] == NN
+                // if (chip8.instruction->NN == chip8.V[chip8.instruction.X]) {
+                //     chip8->PC += 2;
+                // }
+
+                printf("Check if V%X (0x%02X) == NN (0x%02X), skip next instruction if true\n",
+                    chip8->instruction.X, chip8->V[chip8->instruction.X], chip8->instruction.NN);
                 break;
 
+            case 0x04:
+                // 0x4XNN :Skip next instruction if V[x] != NN
+                // if (chip8.instruction->NN == chip8.V[chip8.instruction.X]) {
+                //     chip8->PC += 2;
+                // }
+
+                printf("Check if V%X (0x%02X) == NN (0x%02X), skip next instruction if false\n",
+                    chip8->instruction.X, chip8->V[chip8->instruction.X], chip8->instruction.NN);
+                break;
+
+            case 0x05:
+                // 0x5XY0 :Skip next instruction if V[x] == V[Y]
+
+                printf("Check if V%X (0x%02X) == V%X (0x%02X), skip next instruction if false\n",
+                    chip8->instruction.X, chip8->V[chip8->instruction.X],
+                    chip8->instruction.Y, chip8->V[chip8->instruction.Y]);
+                break;
+                
             case 0x06:
             // 0x6XNN: Set register VX += NN
             printf("Set Register V[%X] += NN (0x%02X)\n", 
@@ -319,6 +342,95 @@ void get_input(chip8_t *chip8) {
                     chip8->instruction.X, chip8->V[chip8->instruction.X], chip8->instruction.NN,
                     chip8->V[chip8->instruction.X] + chip8->instruction.NN);
                 break;
+
+            case 0x08:
+            // 0x8XY0: Set register VX += NN
+                switch (chip8->instruction.N) {
+                    case 0:
+                        printf("Set regiwster V%X = V%X (0x%02X)\n",
+                        chip8->instruction.X, chip8->instruction.Y, chip8->V[chip8->instruction.Y]);
+                        break;
+
+                    case 1:
+                        printf("Set regiwster V%X (0x%02X) |= V%X (0x%02X); Result 0x%02X\n",
+                        chip8->instruction.X, chip8->V[chip8->instruction.X],
+                        chip8->instruction.Y, chip8->V[chip8->instruction.Y],
+                        chip8->V[chip8->instruction.X] | chip8->V[chip8->instruction.Y]);
+                        break;
+
+                    case 2:
+                        printf("Set regiwster V%X (0x%02X) &= V%X (0x%02X); Result 0x%02X\n",
+                        chip8->instruction.X, chip8->V[chip8->instruction.X],
+                        chip8->instruction.Y, chip8->V[chip8->instruction.Y],
+                        chip8->V[chip8->instruction.X] & chip8->V[chip8->instruction.Y]);
+                        break;
+
+                    case 3:
+                        printf("Set regiwster V%X (0x%02X) ^= V%X (0x%02X); Result 0x%02X\n",
+                        chip8->instruction.X, chip8->V[chip8->instruction.X],
+                        chip8->instruction.Y, chip8->V[chip8->instruction.Y],
+                        chip8->V[chip8->instruction.X] ^ chip8->V[chip8->instruction.Y]);
+                        break;
+
+                    case 4:
+                        printf("Set regiwster V%X (0x%02X) += V%X (0x%02X); Result 0x%02X, VF = %X; 1 is carry\n",
+                        chip8->instruction.X, chip8->V[chip8->instruction.X],
+                        chip8->instruction.Y, chip8->V[chip8->instruction.Y],
+                        chip8->V[chip8->instruction.X] + chip8->V[chip8->instruction.Y],
+                        (uint16_t)(chip8->V[chip8->instruction.X] + chip8->V[chip8->instruction.Y]) > 255);
+                        break;
+
+                    case 5:
+                        printf("Set regiwster V%X (0x%02X) -= V%X (0x%02X); Result 0x%02X, VF = %X; 1 if no borrow\n",
+                        chip8->instruction.X, chip8->V[chip8->instruction.X],
+                        chip8->instruction.Y, chip8->V[chip8->instruction.Y],
+                        chip8->V[chip8->instruction.X] - chip8->V[chip8->instruction.Y],
+                        (chip8->V[chip8->instruction.Y] <= chip8->V[chip8->instruction.X]));
+                        break;
+
+                    case 6:
+                        printf("Set regiwster V%X (0x%02X) >>= 1; Result 0x%02X, VF = %X; 1 Shifted off bit\n",
+                        chip8->instruction.X, chip8->V[chip8->instruction.X],
+                        chip8->V[chip8->instruction.X] & 1,
+                        chip8->V[chip8->instruction.X] >> 1);
+                        break;
+
+                    case 7:
+                        printf("Set regiwster V%X = V%X (0x%02X) - V%X (0x%02X); Result 0x%02X, VF = %X; 1 if no borrow\n",
+                        chip8->instruction.X, chip8->instruction.Y, chip8->V[chip8->instruction.Y],
+                        chip8->instruction.X, chip8->V[chip8->instruction.X],
+                        chip8->V[chip8->instruction.Y] - chip8->V[chip8->instruction.X],
+                        (chip8->V[chip8->instruction.X] <= chip8->V[chip8->instruction.Y]));
+                        break;
+
+                    case 0xE:
+                        printf("Set regiwster V%X (0x%02X) <<= 1; Result 0x%02X, VF = %X; 1 Shifted off bit\n",
+                        chip8->instruction.X, chip8->V[chip8->instruction.X],
+                        (chip8->V[chip8->instruction.X] & 0x80) >> 7,
+                        chip8->V[chip8->instruction.X] << 1);
+                        break;
+
+                    default:
+                        // Incorrect.
+                }
+                
+            break;
+
+        case 0x09:
+            printf("Check if V%X (0x%02X) != V%X (0x%02X), skip next instruction if true\n",
+                chip8->instruction.X, chip8->V[chip8->instruction.X],
+                chip8->instruction.Y, chip8->V[chip8->instruction.Y]);
+            break;
+
+        case 0x0A:
+            printf("Set I to NNN (0x%04X)\n",
+                chip8->instruction.NNN);
+            break;
+
+        case 0x0B:
+            printf("Set PC to V0 (%x02X)+ NNN (%x04X), Result PC = %x04X\n",
+                chip8->V[0], chip8->instruction.NNN, chip8->V[0] + chip8->instruction.NNN);
+            break;
 
         case 0x0D:
             // 0xDXYN: draw N hright sprite at coords X, Y
@@ -396,7 +508,7 @@ void emulate_instr(chip8_t *chip8, const config_t config) {
             if (chip8->instruction.NN == 0xE0) {
                 // 0x00E0 -> clear screen
                 memset(&chip8->display[0], false, sizeof chip8->display);
-            } else if (chip8->instruction.NN == 0xE0) {
+            } else if (chip8->instruction.NN == 0xEE) {
                 // 0x00EE -> subroutine return
                 chip8->PC = *--chip8->stack_pointer;
             }
@@ -413,9 +525,25 @@ void emulate_instr(chip8_t *chip8, const config_t config) {
             chip8->PC = chip8->instruction.NNN;
             break;
 
-        case 0x0A:
-            // 0xANNN: Set index register I to NNN
-            chip8->I = chip8->instruction.NNN;   
+        case 0x03:
+            // 0x3XNN :Skip next instruction if V[x] == NN
+            if (chip8->instruction.NN == chip8->V[chip8->instruction.X]) {
+                chip8->PC += 2;
+            }
+            break;
+
+        case 0x04:
+            // 0x3XNN :Skip next instruction if V[x] != NN
+            if (chip8->instruction.NN != chip8->V[chip8->instruction.X]) {
+                chip8->PC += 2;
+            }
+            break;
+
+        case 0x05:
+            // 0x5XY0 :Skip next instruction if V[x] != V[y]            
+            if (chip8->V[chip8->instruction.Y] == chip8->V[chip8->instruction.X]) {
+                chip8->PC += 2;
+            }
             break;
 
         case 0x06:
@@ -424,8 +552,74 @@ void emulate_instr(chip8_t *chip8, const config_t config) {
             break;
 
         case 0x07:
-            // 0x6XNN: Set register VX += NN
+            // 0x7XNN: Set register VX += NN
             chip8->V[chip8->instruction.X] += chip8->instruction.NN;
+            break;
+
+        case 0x08:
+            // 0x8XY0: Set register VX += NN
+            switch (chip8->instruction.N) {
+                case 0:
+                    chip8->V[chip8->instruction.X] = chip8->V[chip8->instruction.Y];
+                    break;
+
+                case 1:
+                    chip8->V[chip8->instruction.X] |= chip8->V[chip8->instruction.Y];
+                    break;
+
+                case 2:
+                    chip8->V[chip8->instruction.X] &= chip8->V[chip8->instruction.Y];
+                    break;
+
+                case 3:
+                    chip8->V[chip8->instruction.X] ^= chip8->V[chip8->instruction.Y];
+                    break;
+
+                case 4:
+                    if ((int16_t)(chip8->V[chip8->instruction.X] + chip8->V[chip8->instruction.Y]) > 255)
+                        chip8->V[0xF] = 1;
+                    chip8->V[chip8->instruction.X] += chip8->V[chip8->instruction.Y];
+                    break;
+
+                case 5:
+                    if (chip8->V[chip8->instruction.Y] <= chip8->V[chip8->instruction.X])
+                        chip8->V[0xF] = 1;
+                    chip8->V[chip8->instruction.X] -= chip8->V[chip8->instruction.Y];
+                    break;
+
+                case 6:
+                    chip8->V[0xF] = chip8->V[chip8->instruction.X] & 1;
+                    chip8->V[chip8->instruction.X] >>= 1;
+                    break;
+
+                case 7:
+                    if (chip8->V[chip8->instruction.X] <= chip8->V[chip8->instruction.Y])
+                        chip8->V[0xF] = 1;
+                    chip8->V[chip8->instruction.X] = chip8->V[chip8->instruction.Y] - chip8->V[chip8->instruction.X];
+                    break;
+
+                case 0xE:
+                    chip8->V[0xF] = (chip8->V[chip8->instruction.X] & 0x80) >> 7;
+                    chip8->V[chip8->instruction.X] <<= 1;
+                    break;
+
+                default:
+                    // Incorrect.
+            }
+            break;
+
+        case 0x09:
+            if (chip8->V[chip8->instruction.X] != chip8->V[chip8->instruction.Y]) {
+                chip8->PC += 2;
+            }
+            break;
+
+        case 0x0A:
+            chip8->I = chip8->instruction.NNN;
+            break;
+
+        case 0x0B:
+            chip8->PC = chip8->V[0] + chip8->instruction.NNN;
             break;
 
         case 0x0D:
