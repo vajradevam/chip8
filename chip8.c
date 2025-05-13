@@ -7,6 +7,102 @@
 
 #include <SDL2/SDL.h>
 
+// --- SDL Audio Configuration ---
+#define AMPLITUDE 5000     // Loudness
+#define BEEP_FREQUENCY 350  // Frequency
+#define SAMPLE_RATE 44100   // Audio sample rate
+
+// --- SDL Audio State ---
+static SDL_AudioDeviceID audio_device_id = 0;
+static SDL_AudioSpec audio_spec_obtained;
+static volatile bool s_should_beep_play = false; // Controls if the beep is active
+static double s_wave_phase = 0.0;             // Current phase of the sound wave
+
+// --- SDL Audio Callback Function ---
+// This function is called by SDL whenever it needs more audio data.
+void audio_callback(void *userdata, Uint8 *stream, int len) {
+    (void)userdata; // Unused in this example
+
+    Sint16 *buffer = (Sint16 *)stream;
+    int num_samples = len / sizeof(Sint16); // Number of samples to fill
+
+    if (s_should_beep_play) {
+        for (int i = 0; i < num_samples; i++) {
+            // Generate a simple square wave
+            buffer[i] = (s_wave_phase < 0.5) ? AMPLITUDE : -AMPLITUDE;
+            s_wave_phase += (double)BEEP_FREQUENCY / (double)audio_spec_obtained.freq;
+            if (s_wave_phase >= 1.0) {
+                s_wave_phase -= 1.0;
+            }
+        }
+    } else {
+        // Fill with silence if beep should not play
+        SDL_memset(stream, 0, len);
+    }
+}
+
+// --- Platform Audio Initialization (Call once at emulator startup) ---
+bool platform_init_audio() {
+    if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) {
+        fprintf(stderr, "SDL_InitSubSystem(SDL_INIT_AUDIO) failed: %s\n", SDL_GetError());
+        return false;
+    }
+
+    SDL_AudioSpec audio_spec_desired;
+    SDL_zero(audio_spec_desired); // Initialize all fields to zero
+
+    audio_spec_desired.freq = SAMPLE_RATE;        // Desired sample rate
+    audio_spec_desired.format = AUDIO_S16SYS;     // Signed 16-bit samples, system byte order
+    audio_spec_desired.channels = 1;              // Mono audio
+    audio_spec_desired.samples = 512;             // Audio buffer size (adjust if needed)
+    audio_spec_desired.callback = audio_callback; // Function SDL calls for audio data
+    audio_spec_desired.userdata = NULL;           // No custom data to pass to callback
+
+    // The last argument '0' means no changes to the desired spec are allowed by SDL.
+    audio_device_id = SDL_OpenAudioDevice(NULL, 0, &audio_spec_desired, &audio_spec_obtained, 0);
+
+    if (audio_device_id == 0) {
+        fprintf(stderr, "SDL_OpenAudioDevice failed: %s\n", SDL_GetError());
+        SDL_QuitSubSystem(SDL_INIT_AUDIO); // Clean up partially initialized audio
+        return false;
+    }
+
+    // Start playing audio (unpause the audio device, callback will now be called)
+    SDL_PauseAudioDevice(audio_device_id, 0);
+    printf("Platform audio initialized successfully using SDL2.\n");
+    return true;
+}
+
+// --- Platform Audio Shutdown (Call once at emulator exit) ---
+void platform_shutdown_audio() {
+    if (audio_device_id != 0) {
+        SDL_CloseAudioDevice(audio_device_id);
+        audio_device_id = 0;
+    }
+    SDL_QuitSubSystem(SDL_INIT_AUDIO); // Shuts down the SDL audio subsystem
+    printf("Platform audio shut down.\n");
+}
+
+// --- Actual Beep Control Functions ---
+void platform_start_beep() {
+    if (audio_device_id != 0) { // Check if audio was initialized
+        // Safely update the shared flag used by the audio callback
+        SDL_LockAudioDevice(audio_device_id);
+        s_should_beep_play = true;
+        SDL_UnlockAudioDevice(audio_device_id);
+    }
+    // If audio isn't initialized, you might want to log an error or do nothing.
+}
+
+void platform_stop_beep() {
+    if (audio_device_id != 0) { // Check if audio was initialized
+        // Safely update the shared flag
+        SDL_LockAudioDevice(audio_device_id);
+        s_should_beep_play = false;
+        SDL_UnlockAudioDevice(audio_device_id);
+    }
+}
+
 // SDL Container
 typedef struct {
     SDL_Window *window;
@@ -57,6 +153,7 @@ typedef struct {
     uint8_t sound_timer;    // Decrements at 60Hz if > 0, buzzes when it reaches 0
     instruction_t instruction; // Current decoded instruction
     const char *rom_name;   // Name of the loaded ROM
+    int is_sound_currently_active;
 } chip8_t;
 
 
@@ -884,19 +981,27 @@ void emulate_instr(chip8_t *chip8, const config_t config) {
     (void)config; // Suppress unused parameter warning if config is not used by emulate_instr directly
 }
 
-// Update CHIP-8 timers (delay and sound)
 void update_timers(chip8_t *chip8) {
     if (chip8->delay_timer > 0) {
         chip8->delay_timer--;
     }
 
     if (chip8->sound_timer > 0) {
+        if (!chip8->is_sound_currently_active) {
+            platform_start_beep();
+            chip8->is_sound_currently_active = 1;
+        }
         chip8->sound_timer--;
         if (chip8->sound_timer == 0) {
-            // TODO: Implement actual beep sound when sound timer reaches zero.
-            #ifdef DEBUG
-            // printf("BEEP!\n"); // Can be noisy
-            #endif
+            if (chip8->is_sound_currently_active) {
+                platform_stop_beep();
+                chip8->is_sound_currently_active = 0;
+            }
+        }
+    } else {
+        if (chip8->is_sound_currently_active) {
+            platform_stop_beep();
+            chip8->is_sound_currently_active = 0;
         }
     }
 }
@@ -924,6 +1029,12 @@ int main(int argc, char **argv) {
         cleanup(sdl);
         exit(EXIT_FAILURE);
     }
+
+    chip8.delay_timer = 0;
+    chip8.sound_timer = 0;
+    chip8.is_sound_currently_active = 0;
+
+    platform_init_audio();
 
     clear_screen_sdl(sdl, config);
 
@@ -987,10 +1098,10 @@ int main(int argc, char **argv) {
         // A more robust game loop might separate instruction execution rate from display rate.
         // For now, tying screen update to timer update (both ~60Hz) is a common approach.
         // The IPS is controlled by delaying after each instruction.
-
     }
 
     cleanup(sdl);
+    platform_shutdown_audio();
     printf("Emulator closed.\n");
     return 0;
 }
