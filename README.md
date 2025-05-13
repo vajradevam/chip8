@@ -4,6 +4,9 @@
 
 A CHIP-8 emulator written in C using SDL2 for graphics and input.
 
+![alt text](assets/opcodes.png)
+![alt text](assets/ibm.png)
+
 > [CHIP-8](https://en.wikipedia.org/wiki/CHIP-8) is an interpreted programming language from the 1970s used to create simple games and programs for vintage computers. Modern implementations emulate the original CHIP-8 virtual machine to run these classic programs.
 
 ### [Read about CHIP-8](https://tobiasvl.github.io/blog/write-a-chip-8-emulator/) | [CHIP-8 Community Discussion](https://www.reddit.com/r/EmuDev/comments/6lgzzd/what_is_chip8_and_why_does_everyone_want_to/)

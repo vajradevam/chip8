@@ -192,7 +192,7 @@ bool set_config_from_args(config_t *config, int argc, char **argv) {
     *config = (config_t) {
         .window_width = 64,         // CHIP-8 native width
         .window_height = 32,        // CHIP-8 native height
-        .fg_color = 0xFFFFFFFF,     // Foreground
+        .fg_color = 0xF27216FF,     // Foreground
         .bg_color = 0x000000FF,     // Background
         .scaling_factor = 20,       // Pixel scaling factor for window size
         .outline = false,           // Whether to draw outlines around pixels
