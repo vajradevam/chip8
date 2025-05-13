@@ -151,7 +151,7 @@ gcc -DDEBUG chip8.c -o chip8 -lSDL2
 
 - [Cowgod's CHIP-8 Technical Reference](http://devernay.free.fr/hacks/chip8/C8TECH10.HTM)
 - [How to write an emulator (CHIP-8 interpreter)](https://tobiasvl.github.io/blog/write-a-chip-8-emulator/)
-- SDL2 documentation
+- [SDL2 documentation](https://wiki.libsdl.org/SDL2/FrontPage)
 
 ## License
 
